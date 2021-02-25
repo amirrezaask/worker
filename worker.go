@@ -19,13 +19,15 @@ func NewSimpleWorker(numOfGoroutines int, queue Queue) Worker {
 func (w *simpleWorker) Start() {
 	for i := 0; i < w.numOfGoroutines; i++ {
 		go func(q Queue) {
-			j, err := q.Next()
-			if err != nil {
-				w.errHandler(w.logger, err)
-			}
-			err = j.Run()
-			if err != nil {
-				w.errHandler(w.logger, err)
+			for {
+				j, err := q.Next()
+				if err != nil {
+					w.errHandler(w.logger, err)
+				}
+				err = j.Run()
+				if err != nil {
+					w.errHandler(w.logger, err)
+				}
 			}
 		}(w.queue)
 	}
