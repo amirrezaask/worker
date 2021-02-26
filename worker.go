@@ -3,6 +3,9 @@ package worker
 import "fmt"
 
 type Worker interface {
+	WithQueue(q Queue) Worker
+	WithNGouroutines(n int) Worker
+	WithErrHandler(func(l Logger, err error)) Worker
 	RecentJobs(n int) map[string]JobStatus
 	Failed() map[string]JobStatus
 	QueueLen() int
@@ -21,8 +24,8 @@ type simpleWorker struct {
 	jobMap          map[string]Job
 }
 
-func NewSimpleWorker(numOfGoroutines int, queue Queue) Worker {
-	return &simpleWorker{numOfGoroutines: numOfGoroutines, queue: queue}
+func NewSimpleWorker() Worker {
+	return &simpleWorker{jobMap: make(map[string]Job), doneJobs: make(map[string]JobStatus)}
 }
 
 func (w *simpleWorker) Start() {
@@ -34,6 +37,7 @@ func (w *simpleWorker) Start() {
 					w.errHandler(w.logger, err)
 					continue
 				}
+				fmt.Println("running job id ", jobID)
 				j, exists := w.jobMap[jobID]
 				if !exists {
 					w.errHandler(w.logger, fmt.Errorf("no job with id %s is registered", jobID))
@@ -94,4 +98,19 @@ func (w *simpleWorker) RunJob(j Job) {
 
 func (w *simpleWorker) RunJobByID(jobID string) {
 	w.queue.Add(jobID)
+}
+
+func (w *simpleWorker) WithQueue(q Queue) Worker {
+	w.queue = q
+	return w
+}
+
+func (w *simpleWorker) WithNGouroutines(n int) Worker {
+	w.numOfGoroutines = n
+	return w
+}
+
+func (w *simpleWorker) WithErrHandler(f func(l Logger, err error)) Worker {
+	w.errHandler = f
+	return w
 }

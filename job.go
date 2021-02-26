@@ -15,18 +15,20 @@ const (
 )
 
 type simpleJob struct {
+	id     string
 	run    func() error
 	status JobStatus
 }
 
-func NewSimpleJob(f func() error) Job {
+func NewSimpleJob(id string, f func() error) Job {
 	return &simpleJob{
+		id:  id,
 		run: f,
 	}
 }
 
 func (j *simpleJob) ID() string {
-	return ""
+	return j.id
 }
 
 func (j *simpleJob) Run() error {
