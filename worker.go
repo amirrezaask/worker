@@ -1,10 +1,15 @@
 package worker
 
+import "fmt"
+
 type Worker interface {
 	RecentJobs(n int) map[string]JobStatus
 	Failed() map[string]JobStatus
 	QueueLen() int
 	Start()
+	RegisterJob(j Job)
+	RunJob(j Job)
+	RunJobByID(jobID string)
 }
 
 type simpleWorker struct {
@@ -13,6 +18,7 @@ type simpleWorker struct {
 	errHandler      func(l Logger, err error)
 	logger          Logger
 	doneJobs        map[string]JobStatus
+	jobMap          map[string]Job
 }
 
 func NewSimpleWorker(numOfGoroutines int, queue Queue) Worker {
@@ -23,10 +29,14 @@ func (w *simpleWorker) Start() {
 	for i := 0; i < w.numOfGoroutines; i++ {
 		go func(q Queue) {
 			for {
-				j, err := q.Next()
+				jobID, err := q.Next()
 				if err != nil {
 					w.errHandler(w.logger, err)
 					continue
+				}
+				j, exists := w.jobMap[jobID]
+				if !exists {
+					w.errHandler(w.logger, fmt.Errorf("no job with id %s is registered", jobID))
 				}
 				err = j.Run()
 				if err != nil {
@@ -64,4 +74,24 @@ func (w *simpleWorker) Failed() map[string]JobStatus {
 		}
 	}
 	return out
+}
+
+func (w *simpleWorker) RegisterJob(j Job) {
+	w.jobMap[j.ID()] = j
+}
+
+func (w *simpleWorker) jobIsRegistered(j Job) bool {
+	_, exists := w.jobMap[j.ID()]
+	return exists
+}
+
+func (w *simpleWorker) RunJob(j Job) {
+	if !w.jobIsRegistered(j) {
+		w.RegisterJob(j)
+	}
+	w.queue.Add(j.ID())
+}
+
+func (w *simpleWorker) RunJobByID(jobID string) {
+	w.queue.Add(jobID)
 }
